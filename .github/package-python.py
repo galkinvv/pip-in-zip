@@ -27,7 +27,6 @@ def move_python_distr(full_dir: pathlib.Path, target_dir: pathlib.Path, release_
             if f.suffix.lower() == ".tcl" or f.name.lower() in {"tclindex", "opt0.4", "ttk"}:
                 f.rename(sub_target/f.name)
         
-    shutil.copy2(target_dir / "pip.bat", target_dir / "pip3.bat")
     launcher = target_dir / "ConsolePIPinZIP.bat"
     launcher_text = launcher.read_text()
     launcher.write_text(launcher_text.replace("%CONSOLE_NAME_PLACEHOLDER%", "PIPinZIP " + release_name))
