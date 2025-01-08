@@ -40,7 +40,6 @@ def pip_in_zip_tune():
         pip_exe_suffix = ".exe"
 
         sys_argv0_lower = sys.argv[0].lower()
-        print(sys.argv)
         if sys_argv0_lower.startswith(pip_exe_prefix) and sys_argv0_lower.endswith(pip_exe_suffix):
             # file named like pip.exe/pip3*.exe is executed
             pip_exe_center = sys_argv0_lower[len(pip_exe_prefix) : -len(pip_exe_suffix)]
