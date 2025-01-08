@@ -34,9 +34,7 @@ jobs:
           key: downloaded
           path: downloaded/
       - run: |
-          echo ${{ inputs.preset}}
-          echo ${{ fromJson(env.PresetsMappingJson)[github.event.inputs.preset]['insturlformat'] }}
-          echo ${{ inputs.preset}}
+          echo ${{ format(fromJson(env.PresetsMappingJson)[inputs.preset]['insturlformat'], inputs.pythonver) }}
           # .github\get-and-expand-python.ps1 -pythoninstexe ${{ format(github.event.inputs.pythoninstexeformat, github.event.inputs.pythonver)}} -pythoninsturl ${{ format(github.event.inputs.pythoninsturlformat, github.event.inputs.pythonver)}}
           # .github\expanded\python.exe .github\package-python.py ${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}}
       #- uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5  # v9.1.4
