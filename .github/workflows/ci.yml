@@ -5,6 +5,11 @@ on:
     inputs:
       pythonver:
         default: '3.13.1'
+      preset:
+        type: choice
+        options: 
+        - PyFoundation
+        - ProlongWin7adang1345
       pythoninstexeformat:
         default: 'python-{0}-amd64-full.exe'
       pythoninsturlformat:
@@ -14,6 +19,14 @@ on:
 jobs:
   get-package-push:
     runs-on: windows-2025
+    env:
+      PresetsMappingJson: |
+        {
+        "PyFoundation":
+          {"insturlformat": "https://www.python.org/ftp/python/{0}"},
+        "ProlongWin7adang1345":
+          {"insturlformat": "https://github.com/adang1345/PythonWin7/raw/refs/heads/master/{0}"}
+        }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -21,10 +34,13 @@ jobs:
           key: downloaded
           path: downloaded/
       - run: |
-          .github\get-and-expand-python.ps1 -pythoninstexe ${{ format(github.event.inputs.pythoninstexeformat, github.event.inputs.pythonver)}} -pythoninsturl ${{ format(github.event.inputs.pythoninsturlformat, github.event.inputs.pythonver)}}
-          .github\expanded\python.exe .github\package-python.py ${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}}
-      - uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5  # v9.1.4
-        with:
-          remove: "-r --cached --quiet .github downloaded"
-          message: "Github action build ${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}}"
-          push: origin HEAD:${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}} --force
+          echo ${{ github.event.inputs.preset}}
+          echo ${{ fromJson(env.PresetsMappingJson)[github.event.inputs.preset] }}
+          echo ${{ inputs.preset}}
+          # .github\get-and-expand-python.ps1 -pythoninstexe ${{ format(github.event.inputs.pythoninstexeformat, github.event.inputs.pythonver)}} -pythoninsturl ${{ format(github.event.inputs.pythoninsturlformat, github.event.inputs.pythonver)}}
+          # .github\expanded\python.exe .github\package-python.py ${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}}
+      #- uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5  # v9.1.4
+      #  with:
+      #    remove: "-r --cached --quiet .github downloaded"
+      #    message: "Github action build ${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}}"
+      #    push: origin HEAD:${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}} --force
