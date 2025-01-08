@@ -35,7 +35,7 @@ jobs:
           path: downloaded/
       - run: |
           echo ${{ inputs.preset}}
-          echo ${{ fromJson(env.PresetsMappingJson)[github.event.inputs.preset]["insturlformat"] }}
+          echo ${{ fromJson(env.PresetsMappingJson)[github.event.inputs.preset]['insturlformat'] }}
           echo ${{ inputs.preset}}
           # .github\get-and-expand-python.ps1 -pythoninstexe ${{ format(github.event.inputs.pythoninstexeformat, github.event.inputs.pythonver)}} -pythoninsturl ${{ format(github.event.inputs.pythoninsturlformat, github.event.inputs.pythonver)}}
           # .github\expanded\python.exe .github\package-python.py ${{ format(github.event.inputs.releasebranchformat, github.event.inputs.pythonver)}}
