@@ -12,7 +12,8 @@ def move_python_distr(full_dir: pathlib.Path, target_dir: pathlib.Path, release_
         target_lib = target_dir/"Lib"
         target_lib.mkdir()
         std_lib.writepy(source_lib)
-
+        std_lib.writepy(SELF_DIR/"sitecustomize.py")
+        
         for package in source_lib.iterdir():
             if package.is_dir():
                 if package.name in {"ensurepip", "idlelib", "turtledemo"}:
