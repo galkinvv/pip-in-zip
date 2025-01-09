@@ -13,7 +13,7 @@ def move_python_distr(full_dir: pathlib.Path, target_dir: pathlib.Path, release_
 
         for package in source_lib.iterdir():
             if package.is_dir():
-                if package.name in {"venv", "pydoc_data", "ensurepip", "idlelib", "turtledemo"}:
+                if package.name in {"ensurepip", "idlelib", "turtledemo"}:
                     # packages with non-py files that a simpler to handle out-of-zip
                     package.rename(target_dir/"Lib"/package.name)
                 else:

@@ -13,10 +13,15 @@ def pip_in_zip_tune_extra_for_pip():
     mostly enforcing pip avoid hardcoding paths ini generated .exes
     """
     print("Arranging PIPinZIP-specifics for `pip` tool")
-    # make pip happy about scripts directory in path
-    os.environ["PATH"] = os.path.dirname(sys.executable) + ";" + os.environ["PATH"]
-    # alter the python name embedded in installed launchers to be a plin exe to search in current dir or PATH environ
-    sys.executable = os.path.basename(sys.executable)
+    if os.path.isabs(sys.executable):
+        # make pip happy about scripts directory in path
+        os.environ["PATH"] = os.path.dirname(sys.executable) + ";" + os.environ["PATH"]
+        # alter the python name embedded in installed launchers to be a plin exe to search in current dir or PATH environ
+        sys.executable = os.path.basename(sys.executable)
+        if "PIP_CONFIG_FILE" not in os.environ:
+            os.environ["PIP_CONFIG_FILE"] = os.devnul #  ignore any local pip configs
+            if "PIP_NO_CACHE_DIR" not in os.environ:
+                    os.environ["PIP_NO_CACHE_DIR"] = "True" #  dont pollute or use local pip cache
     pip_in_zip_clear_hooks()
 
 
