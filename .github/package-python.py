@@ -9,6 +9,8 @@ def move_python_distr(full_dir: pathlib.Path, target_dir: pathlib.Path, release_
     expected_zip_name = pathlib.Path(next(p for p in sys.path if p.endswith(".zip"))).name
     with zipfile.PyZipFile(target_dir / expected_zip_name, mode="w") as std_lib:
         source_lib = full_dir/"Lib"
+        target_lib = target_dir/"Lib"
+        target_lib.mkdir()
         std_lib.writepy(source_lib)
 
         for package in source_lib.iterdir():
