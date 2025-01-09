@@ -1,6 +1,13 @@
 import sys, os
 
 
+pip_finder = None
+def pip_in_zip_clear_hooks():
+    """clears up early installed hooks (if present)"""
+    if pip_finder in sys.meta_path:
+        sys.meta_path.remove(pip_finder)
+
+
 def pip_in_zip_tune_extra_for_pip():
     """Tunes environment to be more reloacatable, including some risky changes known to be safe for pip
     mostly enforcing pip avoid hardcoding paths ini generated .exes
@@ -8,12 +15,14 @@ def pip_in_zip_tune_extra_for_pip():
     print("Arranging PIPinZIP-specifics for `pip` tool")
     # make pip happy about scripts directory in path
     os.environ["PATH"] = os.path.dirname(sys.executable) + ";" + os.environ["PATH"]
-    sys.executable = ".\\" + os.path.basename(sys.executable)  # alters the python name embedded in installed launchers
+    # alter the python name embedded in installed launchers to be a plin exe to search in current dir or PATH environ
+    sys.executable = os.path.basename(sys.executable)
+    pip_in_zip_clear_hooks()
 
 
 def pip_in_zip_tune():
     """Tunes environment: use packed pip from bundled wheel, organize scheme with putting scripts in base dir"""
-    import importlib.util, sysconfig
+    import importlib.util, importlib.abc, sysconfig, site
 
     pip_in_zip_dir_lower = os.path.abspath(os.path.dirname(sys.executable)).lower() + "\\"
 
@@ -24,6 +33,7 @@ def pip_in_zip_tune():
         p for p in sys.path
         if (os.path.abspath(p) + "\\").lower().startswith(pip_in_zip_dir_lower)
     ]
+    site.ENABLE_USER_SITE = False
 
     if not importlib.util.find_spec("pip"):
         # no newer pip installed - add bundled pip to path with lowest priority
@@ -34,7 +44,7 @@ def pip_in_zip_tune():
 
     sysconfig._PIP_USE_SYSCONFIG = True  # use sysconfig instead of distutils even in 3.9
     sysconfig._INSTALL_SCHEMES["nt"]["scripts"] = "{base}"  # alters the launchers directory
-
+    
     if sys.argv:
         pip_exe_prefix = pip_in_zip_dir_lower + "pip"
         pip_exe_suffix = ".exe"
@@ -49,30 +59,21 @@ def pip_in_zip_tune():
             ):
                 pip_in_zip_tune_extra_for_pip()
         if sys.argv[0] == "-m":
-            # some module is executed, detect which
-            if hasattr(sys, "orig_argv"):
-                passed_args = sys.orig_argv[1:]
-            else:  # <= py 3.9
-                import ctypes
+            import runpy  # preimport runpy to ensure that next imported package would be the one specified in command line
 
-                argv = ctypes.POINTER(ctypes.c_wchar_p)()
-                argc = ctypes.c_int()
+            class PipFinder(importlib.abc.MetaPathFinder):
+                def find_spec(self, fullname, path, target=None):
+                    if not path and not target:
+                        # import of module specified in command line is executed. Check if it is pip
+                        if fullname == "pip":
+                            pip_in_zip_tune_extra_for_pip()
+                        else:
+                            pip_in_zip_clear_hooks
+                    return None
 
-                ctypes.pythonapi.Py_GetArgcArgv(ctypes.byref(argc), ctypes.byref(argv))
-                passed_args = argv[1 : argc.value]
-            found_prefix = ""
-            for passed_arg in passed_args:
-                # module invocation found. If it is pip - run extras, otherwise stop searching
-                if found_prefix + passed_arg == "-mpip":
-                    pip_in_zip_tune_extra_for_pip()
-                    # pip module invocation found, stop searching
-                    break
-                if found_prefix:
-                    # module invocation found, but is not pip, stop searching
-                    break
-                if passed_arg == "-m":
-                    found_prefix = passed_arg
-
+            global pip_finder
+            pip_finder = PipFinder()
+            sys.meta_path.insert(0, pip_finder)
 
 if "PIP_IN_ZIP_DO_NOTHING" not in os.environ and os.path.isabs(sys.executable):
     pip_in_zip_tune()

@@ -4,12 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       pythonver:
+        description: 'python version, >=3.8.20'
         default: '3.13.1'
       preset:
         type: choice
         options: 
         - PyFoundation
         - ExtWin7adang1345
+        - FixSec.adang1345
 jobs:
   get-package-push:
     runs-on: windows-2025
@@ -19,7 +21,9 @@ jobs:
         "PyFoundation":
           {"instexeformat": "python-{0}-amd64.exe", "insturlformat": "https://www.python.org/ftp/python/{0}", "branchformat": "{0}-win64"},
         "ExtWin7adang1345":
-          {"instexeformat": "python-{0}-amd64-full.exe", "insturlformat": "https://github.com/adang1345/PythonWin7/raw/refs/heads/master/{0}", "branchformat": "{0}-ext64"}
+          {"instexeformat": "python-{0}-amd64-full.exe", "insturlformat": "https://github.com/adang1345/PythonWin7/raw/refs/heads/master/{0}", "branchformat": "{0}-ext64"},
+        "FixSec.adang1345":
+          {"instexeformat": "python-{0}-amd64-full.exe", "insturlformat": "https://github.com/adang1345/PythonWindows/raw/refs/heads/master/{0}", "branchformat": "{0}-fix64"}
         }
     steps:
       - uses: actions/checkout@v4
