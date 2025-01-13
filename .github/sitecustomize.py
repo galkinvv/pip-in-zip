@@ -16,11 +16,24 @@ def pip_in_zip_tune_extra_for_pip():
 
     print("Arranging PIPinZIP-specifics for `pip` tool")
     if not importlib.util.find_spec("pip"):
+        import importlib.resources, ensurepip, zipimport
+        class NestedZipImporter(zipimport.zipimporter):
+            allowed_paths = []
+            def __init__(self, path):
+                if path not in self.allowed_paths:
+                    raise ImportError("Not NestedZipImporter prefix")
+                self.prefix = ""
+                self.archive = path
+        
+        sys.path_hooks.insert(0, NestedZipImporter)
+        
         # no newer pip installed - add bundled pip to path with lowest priority
-        ensurepip_whl_dir = importlib.util.find_spec("ensurepip").submodule_search_locations[0] + "\\_bundled\\"
-        for f in os.listdir(ensurepip_whl_dir):
+        for f in importlib.resources.contents(ensurepip, "_bundled"):
             if f.endswith(".whl"):
-                sys.path.append(ensurepip_whl_dir + f)
+                path_entry = os.path.dirname(ensurepip.__file__) + "\\_bundled\\" + f
+                sys.path.append(path_entry)
+                NestedZipImporter.allowed_paths.append(path_entry)
+                
 
     if os.path.isabs(sys.executable):
         # make pip happy about scripts directory in path
@@ -31,6 +44,7 @@ def pip_in_zip_tune_extra_for_pip():
             os.environ["PIP_CONFIG_FILE"] = os.devnull #  ignore any local pip configs
             if "PIP_NO_CACHE_DIR" not in os.environ:
                     os.environ["PIP_NO_CACHE_DIR"] = "True" #  dont pollute or use local pip cache
+    print(sys.path)
 
 
 def pip_in_zip_tune():
@@ -106,6 +120,14 @@ def pip_in_zip_tune():
                         elif fullname == "idlelib":
                             finder.override_origin = pip_in_zip_dir_lower + "tcl\\idle\\"
                             finder.override_for_prefix = "idlelib."
+                            #needed for older py
+                            #import _frozen_importlib_external as _bootstrap_external
+                            #fumo = _bootstrap_external._fix_up_module 
+                            #def fumn(mod_dict, fullname, mod_path, *args, **kwargs):
+                            #    mod_path = tune_mod_path_for_idle_submobule(fullname, mod_path) or mod_path
+                            #    fumo(mod_dict, fullname, mod_path, *args, **kwargs)
+                            #_bootstrap_external._fix_up_module = fumn
+
                     return None
 
             global finder
