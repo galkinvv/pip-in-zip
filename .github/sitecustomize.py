@@ -120,13 +120,15 @@ def pip_in_zip_tune():
                         elif fullname == "idlelib":
                             finder.override_origin = pip_in_zip_dir_lower + "tcl\\idle\\"
                             finder.override_for_prefix = "idlelib."
-                            #needed for older py
-                            #import _frozen_importlib_external as _bootstrap_external
-                            #fumo = _bootstrap_external._fix_up_module 
-                            #def fumn(mod_dict, fullname, mod_path, *args, **kwargs):
-                            #    mod_path = tune_mod_path_for_idle_submobule(fullname, mod_path) or mod_path
-                            #    fumo(mod_dict, fullname, mod_path, *args, **kwargs)
-                            #_bootstrap_external._fix_up_module = fumn
+                            import zipimport
+                            if not hasattr(zipimport.zipimporter, "exec_module"):
+                                # older python uses zipimport.zipimporter.load_module that ignores origin from spec, patch it too
+                                import _frozen_importlib_external as _bootstrap_external
+                                original_fix_up_module = _bootstrap_external._fix_up_module 
+                                def patched_fix_up_module(mod_dict, fullname, mod_path, *args, **kwargs):
+                                    mod_path = finder.mod_path_for_submobule(fullname, mod_path) or mod_path
+                                    original_fix_up_module(mod_dict, fullname, mod_path, *args, **kwargs)
+                                _bootstrap_external._fix_up_module = patched_fix_up_module
 
                     return None
 
