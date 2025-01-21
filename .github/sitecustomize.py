@@ -2,6 +2,8 @@ import sys, os
 
 
 finder = None
+
+
 def pip_in_zip_clear_hooks():
     """clears up early installed hooks (if present)"""
     if finder in sys.meta_path:
@@ -18,7 +20,9 @@ def pip_in_zip_tune_extra_for_pip():
     if not importlib.util.find_spec("pip"):
         # no newer pip installed - add bundled pip to path with lowest priorityat the end of sys.path
         import importlib.resources, ensurepip, zipimport, _io, io
+
         paths_zipbytes_values = {}
+
         def zip_bytes_importer_factory(path):
             for virtual_path in paths_zipbytes_values:
                 if path.startswith(virtual_path):
@@ -26,7 +30,7 @@ def pip_in_zip_tune_extra_for_pip():
                         if p.endswith(".zip") and os.path.dirname(virtual_path).startswith(p):
                             # make zipimporter for base archive and patch it
                             result = zipimport.zipimporter(p)
-                            result.prefix = path[len(virtual_path)+1:]
+                            result.prefix = path[len(virtual_path) + 1 :]
                             result.archive = virtual_path
                             result._files = zipimport._read_directory(result.archive)
                             if result.prefix:
@@ -35,6 +39,7 @@ def pip_in_zip_tune_extra_for_pip():
             raise ImportError("Not zip_bytes_importer_factory prefix")
 
         original_open_code = _io.open_code
+
         def patched_io_open_code(path):
             bytes_data = paths_zipbytes_values.get(path)
             if bytes_data:
@@ -56,9 +61,9 @@ def pip_in_zip_tune_extra_for_pip():
         # alter the python name embedded in installed launchers to be a plin exe to search in current dir or PATH environ
         sys.executable = os.path.basename(sys.executable)
         if "PIP_CONFIG_FILE" not in os.environ:
-            os.environ["PIP_CONFIG_FILE"] = os.devnull #  ignore any local pip configs
+            os.environ["PIP_CONFIG_FILE"] = os.devnull  #  ignore any local pip configs
             if "PIP_NO_CACHE_DIR" not in os.environ:
-                    os.environ["PIP_NO_CACHE_DIR"] = "True" #  dont pollute or use local pip cache
+                os.environ["PIP_NO_CACHE_DIR"] = "True"  #  dont pollute or use local pip cache
 
 
 def pip_in_zip_tune():
@@ -70,14 +75,11 @@ def pip_in_zip_tune():
     # Remove paths outside of pip_in_zip_dir_lower from sys.path.
     # This ensures better portability eliminating effects from env-level provided PYTHONPATH
 
-    sys.path = [
-        p for p in sys.path
-        if (os.path.abspath(p) + os.path.sep).lower().startswith(pip_in_zip_dir_lower)
-    ]
+    sys.path = [p for p in sys.path if (os.path.abspath(p) + os.path.sep).lower().startswith(pip_in_zip_dir_lower)]
     site.ENABLE_USER_SITE = False
     sysconfig._PIP_USE_SYSCONFIG = True  # use sysconfig instead of distutils even in 3.9
     sysconfig._INSTALL_SCHEMES["nt"]["scripts"] = "{base}"  # alters the launchers directory
-    
+
     if sys.argv:
         pip_exe_prefix = pip_in_zip_dir_lower + "pip"
         pip_exe_suffix = ".exe"
@@ -86,24 +88,23 @@ def pip_in_zip_tune():
         if sys_argv0_lower.startswith(pip_exe_prefix) and sys_argv0_lower.endswith(pip_exe_suffix):
             # file named like pip.exe/pip3*.exe is executed
             pip_exe_center = sys_argv0_lower[len(pip_exe_prefix) : -len(pip_exe_suffix)]
-            if (
-                not pip_exe_center
-                or (pip_exe_center[0] == 3 and os.path.sep not in pip_exe_center)
-            ):
+            if not pip_exe_center or (pip_exe_center[0] == 3 and os.path.sep not in pip_exe_center):
                 pip_in_zip_tune_extra_for_pip()
         if sys.argv[0] == "-m":
             import importlib.abc
+
             __import__("runpy")  # preimport runpy to ensure that next imported package would be the one specified in command line
 
             class TuneFinder(importlib.abc.MetaPathFinder):
                 override_origin = None
                 override_for_prefix = ""
+
                 def find_spec(self, fullname, path, target=None):
                     if not self.override_origin:
                         pip_in_zip_clear_hooks()
                         return None
                     finder_index = sys.meta_path.index(finder)
-                    for other_finder in sys.meta_path[finder_index + 1:]:
+                    for other_finder in sys.meta_path[finder_index + 1 :]:
                         try:
                             find_spec = other_finder.find_spec
                         except AttributeError:
@@ -116,7 +117,7 @@ def pip_in_zip_tune():
                             return spec
                     return None
 
-                def mod_path_for_submobule(self, fullname: str, mod_path:str) -> str:
+                def mod_path_for_submobule(self, fullname: str, mod_path: str) -> str:
                     if not fullname.startswith(self.override_for_prefix):
                         return None
                     return os.path.join(self.override_origin, os.path.basename(mod_path))
@@ -136,14 +137,18 @@ def pip_in_zip_tune():
                             finder.override_origin = os.path.join(pip_in_zip_dir_lower, "tcl", "idle")
                             finder.override_for_prefix = "idlelib."
                             import zipimport
+
                             if not hasattr(zipimport.zipimporter, "exec_module"):
                                 # older python uses zipimport.zipimporter.load_module that ignores origin from spec, patch it too
                                 import _frozen_importlib_external as _bootstrap_external
-                                original_fix_up_module = _bootstrap_external._fix_up_module 
+
+                                original_fix_up_module = _bootstrap_external._fix_up_module
+
                                 def patched_fix_up_module(mod_dict, fullname, mod_path, *args, **kwargs):
                                     mod_path = finder.mod_path_for_submobule(fullname, mod_path) or mod_path
                                     print(mod_path)
                                     original_fix_up_module(mod_dict, fullname, mod_path, *args, **kwargs)
+
                                 _bootstrap_external._fix_up_module = patched_fix_up_module
 
                     return None
@@ -151,6 +156,7 @@ def pip_in_zip_tune():
             global finder
             finder = FirstImportInspectFinder()
             sys.meta_path.insert(0, finder)
+
 
 if "PIP_IN_ZIP_DO_NOTHING" not in os.environ and os.path.isabs(sys.executable):
     pip_in_zip_tune()
