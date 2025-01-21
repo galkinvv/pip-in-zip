@@ -46,8 +46,18 @@ def pip_in_zip_tune_extra_for_pip():
                 return io.BytesIO(bytes_data)
             return original_open_code(path)
 
-        sys.path_hooks.insert(0, zip_bytes_importer_factory)
         _io.open_code = patched_io_open_code
+        original_open = io.open
+
+        def patched_io_open(path, *args, **kwargs):
+            bytes_data = paths_zipbytes_values.get(path)
+            if bytes_data and args == ('rb',):
+                return io.BytesIO(bytes_data)
+            return original_open(path, *args, **kwargs)
+
+        io.open = patched_io_open
+        sys.path_hooks.insert(0, zip_bytes_importer_factory)
+
 
         for f in importlib.resources.contents(ensurepip):
             if f.endswith(".whl"):
