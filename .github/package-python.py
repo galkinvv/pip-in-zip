@@ -30,13 +30,17 @@ def move_python_distr(full_dir: pathlib.Path, target_dir: pathlib.Path, release_
         
         for package in source_lib.iterdir():
             if package.is_dir():
-                if package.name not in {"turtledemo"}: # turtledemo is not worth fixing even for working from .zip
+                # turtledemo is not worth fixing even for working from .zip, ensurepip packed alternatively
+                if package.name not in {"turtledemo", "ensurepip"}:
                     std_lib.writepy(package)
 
-        for f in (full_dir/ "Lib/ensurepip/_bundled").iterdir():
-            if f.suffix.lower() == ".whl":
-                std_lib.write(f, "ensurepip/_bundled/" + f.name)
+        for f in (full_dir/ "Lib/ensurepip").iterdir():
+            if f.is_file():
+                std_lib.write(f, "ensurepip/" + f.name)
 
+        for f in (full_dir/ "Lib/ensurepip/_bundled").iterdir():
+            if f.is_file():
+                std_lib.write(f, "ensurepip/" + f.name)
         
     launcher = target_dir / "ConsolePIPinZIP.bat"
     launcher_text = launcher.read_text()

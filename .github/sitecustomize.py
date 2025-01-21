@@ -16,24 +16,29 @@ def pip_in_zip_tune_extra_for_pip():
 
     print("Arranging PIPinZIP-specifics for `pip` tool")
     if not importlib.util.find_spec("pip"):
-        import importlib.resources, ensurepip, zipimport
-        class NestedZipImporter(zipimport.zipimporter):
-            allowed_paths = []
+        # no newer pip installed - add bundled pip to path with lowest priorityat the end of sys.path
+        import importlib.resources, ensurepip, zipimport, _io
+        class ZipBytesImporter(zipimport.zipimporter):
+            paths_bytes_values = {}
             def __init__(self, path):
-                if path not in self.allowed_paths:
-                    raise ImportError("Not NestedZipImporter prefix")
+                if path not in self.paths_bytes_values:
+                    raise ImportError("Not ZipBytesImporter prefix")
                 self.prefix = ""
                 self.archive = path
-        
-        sys.path_hooks.insert(0, NestedZipImporter)
-        
-        # no newer pip installed - add bundled pip to path with lowest priority
-        for f in importlib.resources.contents(ensurepip, "_bundled"):
+
+        original_open_code = _io.open_code
+        def patched_io_open_code(path):
+            print(path, path in ZipBytesImporter.paths_bytes_values)
+            return original_open_code(path)
+
+        sys.path_hooks.insert(0, ZipBytesImporter)
+        _io.open_code = patched_io_open_code
+
+        for f in importlib.resources.contents(ensurepip):
             if f.endswith(".whl"):
-                path_entry = os.path.dirname(ensurepip.__file__) + "\\_bundled\\" + f
+                path_entry = os.path.join(os.path.dirname(ensurepip.__file__), f)
+                ZipBytesImporter.paths_bytes_values[path_entry] = importlib.resources.read_binary(f)
                 sys.path.append(path_entry)
-                NestedZipImporter.allowed_paths.append(path_entry)
-                
 
     if os.path.isabs(sys.executable):
         # make pip happy about scripts directory in path
@@ -51,14 +56,14 @@ def pip_in_zip_tune():
     """Tunes environment: use packed pip from bundled wheel, organize scheme with putting scripts in base dir"""
     import importlib.util, importlib.abc, sysconfig, site
 
-    pip_in_zip_dir_lower = os.path.abspath(os.path.dirname(sys.executable)).lower() + "\\"
+    pip_in_zip_dir_lower = os.path.abspath(os.path.dirname(sys.executable)).lower() + os.path.sep
 
     # Remove paths outside of pip_in_zip_dir_lower from sys.path.
     # This ensures better portability eliminating effects from env-level provided PYTHONPATH
 
     sys.path = [
         p for p in sys.path
-        if (os.path.abspath(p) + "\\").lower().startswith(pip_in_zip_dir_lower)
+        if (os.path.abspath(p) + os.path.sep).lower().startswith(pip_in_zip_dir_lower)
     ]
     site.ENABLE_USER_SITE = False
     sysconfig._PIP_USE_SYSCONFIG = True  # use sysconfig instead of distutils even in 3.9
@@ -74,7 +79,7 @@ def pip_in_zip_tune():
             pip_exe_center = sys_argv0_lower[len(pip_exe_prefix) : -len(pip_exe_suffix)]
             if (
                 not pip_exe_center
-                or (pip_exe_center[0] == 3 and "\\" not in pip_exe_center)
+                or (pip_exe_center[0] == 3 and os.path.sep not in pip_exe_center)
             ):
                 pip_in_zip_tune_extra_for_pip()
         if sys.argv[0] == "-m":
@@ -105,7 +110,7 @@ def pip_in_zip_tune():
                 def mod_path_for_submobule(self, fullname: str, mod_path:str) -> str:
                     if not fullname.startswith(self.override_for_prefix):
                         return None
-                    return self.override_origin + mod_path.split("\\")[-1]
+                    return os.path.join(self.override_origin, os.path.basename(mod_path))
 
             class FirstImportInspectFinder(importlib.abc.MetaPathFinder):
                 def find_spec(self, fullname, path, target=None):
@@ -118,7 +123,8 @@ def pip_in_zip_tune():
                         if fullname == "pip":
                             pip_in_zip_tune_extra_for_pip()
                         elif fullname == "idlelib":
-                            finder.override_origin = pip_in_zip_dir_lower + "tcl\\idle\\"
+                            print("Arranging PIPinZIP-specifics for `idle` tool")
+                            finder.override_origin = os.path.join(pip_in_zip_dir_lower, "tcl", "idle")
                             finder.override_for_prefix = "idlelib."
                             import zipimport
                             if not hasattr(zipimport.zipimporter, "exec_module"):
@@ -127,6 +133,7 @@ def pip_in_zip_tune():
                                 original_fix_up_module = _bootstrap_external._fix_up_module 
                                 def patched_fix_up_module(mod_dict, fullname, mod_path, *args, **kwargs):
                                     mod_path = finder.mod_path_for_submobule(fullname, mod_path) or mod_path
+                                    print(mod_path)
                                     original_fix_up_module(mod_dict, fullname, mod_path, *args, **kwargs)
                                 _bootstrap_external._fix_up_module = patched_fix_up_module
 
