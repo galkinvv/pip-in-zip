@@ -17,18 +17,28 @@ def pip_in_zip_tune_extra_for_pip():
     print("Arranging PIPinZIP-specifics for `pip` tool")
     if not importlib.util.find_spec("pip"):
         # no newer pip installed - add bundled pip to path with lowest priorityat the end of sys.path
-        import importlib.resources, ensurepip, zipimport, _io
+        import importlib.resources, ensurepip, zipimport, _io, io
         class ZipBytesImporter(zipimport.zipimporter):
             paths_bytes_values = {}
-            def __init__(self, path):
-                if path not in self.paths_bytes_values:
-                    raise ImportError("Not ZipBytesImporter prefix")
-                self.prefix = ""
-                self.archive = path
+            def __init__(self, path=None):
+                if path is None:
+                    return
+                for virtual_path in ZipBytesImporter.paths_bytes_values:
+                    if path.startswith(virtual_path):
+                        self.prefix = path[len(virtual_path)+1:]
+                        self.archive = virtual_path
+                        self._files = zipimport._read_directory(self.archive)
+                        if self.prefix:
+                            self.prefix += os.path.sep
+                        return
+                raise ImportError("Not ZipBytesImporter prefix")
+        zip_bytes_importer_sample_instance = ZipBytesImporter()
 
         original_open_code = _io.open_code
         def patched_io_open_code(path):
-            print(path, path in ZipBytesImporter.paths_bytes_values)
+            bytes_data = ZipBytesImporter.paths_bytes_values.get(path)
+            if bytes_data:
+                return io.BytesIO(bytes_data)
             return original_open_code(path)
 
         sys.path_hooks.insert(0, ZipBytesImporter)
@@ -37,8 +47,11 @@ def pip_in_zip_tune_extra_for_pip():
         for f in importlib.resources.contents(ensurepip):
             if f.endswith(".whl"):
                 path_entry = os.path.join(os.path.dirname(ensurepip.__file__), f)
-                ZipBytesImporter.paths_bytes_values[path_entry] = importlib.resources.read_binary(f)
+                ZipBytesImporter.paths_bytes_values[path_entry] = importlib.resources.read_binary(ensurepip, f)
                 sys.path.append(path_entry)
+
+        import pip._vendor.distlib.resources
+        pip._vendor.distlib.resources.register_finder(zip_bytes_importer_sample_instance, None)
 
     if os.path.isabs(sys.executable):
         # make pip happy about scripts directory in path
@@ -49,7 +62,6 @@ def pip_in_zip_tune_extra_for_pip():
             os.environ["PIP_CONFIG_FILE"] = os.devnull #  ignore any local pip configs
             if "PIP_NO_CACHE_DIR" not in os.environ:
                     os.environ["PIP_NO_CACHE_DIR"] = "True" #  dont pollute or use local pip cache
-    print(sys.path)
 
 
 def pip_in_zip_tune():
